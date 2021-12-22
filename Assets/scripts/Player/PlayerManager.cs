@@ -27,6 +27,8 @@ namespace Com.MyCompany.MyGame
         [Tooltip("The current Health of our player")]
         public float Health = 1f;
 
+        public float timePassed = 0.0f;
+
         [Tooltip("The local player instance. Use this to know if the local player is represented in the Scene")]
         public static GameObject LocalPlayerInstance;
 
@@ -45,6 +47,10 @@ namespace Com.MyCompany.MyGame
         //True, when the user is firing
         bool IsFiring;
 
+        //For shielding the player
+        private float shield;
+        
+
         #endregion
 
         #region MonoBehaviour CallBacks
@@ -54,6 +60,7 @@ namespace Com.MyCompany.MyGame
         /// </summary>
         public void Awake()
         {
+
             if (this.beams == null)
             {
                 Debug.LogError("<Color=Red><b>Missing</b></Color> Beams Reference.", this);
@@ -80,6 +87,8 @@ namespace Com.MyCompany.MyGame
         /// </summary>
         public void Start()
         {
+            this.shield = 0;
+
             // Create the UI
             if (this.playerUiPrefab != null)
             {
@@ -101,6 +110,7 @@ namespace Com.MyCompany.MyGame
         /// </summary>
         public void Update()
         {
+            timePassed += Time.deltaTime;
             // we only process Inputs and check health if we are the local player
             if (photonView.IsMine)
             {
@@ -110,12 +120,19 @@ namespace Com.MyCompany.MyGame
                 {
                     GameManager.Instance.LeaveRoom();
                 }
+
+                if(timePassed > 5)
+                {
+                    shield = 1.0f;
+                    timePassed = 0;
+                }
             }
 
             if (this.beams != null && this.IsFiring != this.beams.activeInHierarchy)
             {
                 this.beams.SetActive(this.IsFiring);
             }
+            this.beams.SetActive(true);
         }
 
         /// <summary>
@@ -128,7 +145,16 @@ namespace Com.MyCompany.MyGame
         {
             if (other.tag == triggeringTag && photonView.IsMine)
             {
-                this.Health -= 0.1f;
+                if (this.shield > 0)
+                {
+
+                    this.shield -= 0.1f;
+
+                }
+                else
+                {
+                    this.Health -= 0.1f;
+                }
             }
         }
 
@@ -183,12 +209,14 @@ namespace Com.MyCompany.MyGame
                 // We own this player: send the others our data
                 stream.SendNext(this.IsFiring);
                 stream.SendNext(this.Health);
+                stream.SendNext(this.shield);
             }
             else
             {
                 // Network player, receive data
                 this.IsFiring = (bool) stream.ReceiveNext();
                 this.Health = (float) stream.ReceiveNext();
+                this.shield = (float)stream.ReceiveNext();
             }
         }
 
